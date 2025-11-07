@@ -5,6 +5,10 @@ import (
     "fmt"
     "log"
     "os"
+	"strings"
+
+	"obfusgo/parser"
+	"obfusgo/Obfuscation"
 )
 
 var (
@@ -17,11 +21,16 @@ var (
 func main() {
     flag.Parse()
 
+	printBanner()
+
     if *inputFile == "" {
-        fmt.Println("obfusgo - Go Code Obfuscator")
-	fmt.Println("\nUsage:")
-	flag.PrintDefaults()
-	os.Exit(1)
+		fmt.Println("\nUsage:")
+		flag.PrintDefaults()
+		fmt.Println("\nExamples:")
+		fmt.Println("  obfusgo -i payload.go")
+		fmt.Println("  obfusgo -i payload.go -o output.go -m strings,names")
+		fmt.Println("  obfusgo -i payload.go -m all -v")
+		os.Exit(1)
     }
 
     if *outputFile == "" {
@@ -52,8 +61,59 @@ func main() {
 	if *verbose {
 		log.Println("Obfuscation complete!")
 	}
+
+	fmt.Printf("\n[+] Obfuscated file saved: %s\n", *outputFile)
 }
 
 func obfuscate(code []byte, methods string, verbose bool) ([]byte, error) {
-	return code, nil
+	obfuscator, err := parser.NewObfuscator(code)
+	if err != nil {
+		return nil, fmt.Errorf("parsing error: %v", err)
+	}
+
+	file := obfuscator.GetAST()
+	methodList := strings.Split(methods, ",")
+
+	for _, method := range methodList {
+		method = strings.TrimSpace(method)
+
+		switch method {
+		case "strings", "all":
+			if verbose {
+				log.Println("[*] Applying string encryption...")
+			}
+			strObf := obfuscation.NewStringObfuscator(verbose)
+			strObf.ObfuscateStrings(file)
+		case "names", "all":
+			if verbose {
+				log.Println("[*] Applying name randomization...")
+			}
+			nameObf := obfuscation.NewNameObfuscator(verbose)
+			nameObf.ObfuscateNames(file)
+		case "dead", "all":
+			if verbose {
+				log.Println("[*] Injecting dead code...")
+			}
+			deadCode := obfuscation.NewDeadCodeInjector(verbose)
+			deadCode.InjectDeadCode(file)
+		}
+
+		if method == "all" {
+			break
+		}
+	}
+	return obfuscator.Generate()
+}
+
+func printBanner() {
+	banner := `
+   ___  __    ____                 
+  / _ \/ /   / __/_ _____ ____  ___
+ / // / _ \ / _/ // (_-</ __/ / _ \
+/____/_.__//_/  \_,_/___/\__/  \___/
+                                    
+obfusgo v0.1 - Go Code Obfuscator
+For legal and authorized testing only
+`
+	fmt.Println(banner)
 }
