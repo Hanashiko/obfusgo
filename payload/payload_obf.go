@@ -1,8 +1,8 @@
 package main
 
 import (
-	"fmt"
 	"encoding/base64"
+	"fmt"
 )
 
 func d6cabd95b5099cc(a, b int) int {
