@@ -1,10 +1,9 @@
 package obfuscation
 
 import (
-	"crypto/rand"
-	"encoding/base64"
 	"fmt"
 	"go/ast"
+	"go/parser"
 	"go/token"
 )
 
@@ -26,6 +25,12 @@ func (s *StringObfuscator) ObfuscateStrings(file *ast.File) {
 	s.addDecryptFunction(file)
 }
 
+func (s *StringObfuscator) encryptString(lit *ast.BasicLit) {
+	if s.verbose {
+		fmt.Println("[*] (noop) would obfuscate string:", lit.Value)
+	}
+}
+
 func (s *StringObfuscator) addDecryptFunction(file *ast.File) {
 	for _, decl := range file.Decls {
 		if fn, ok := decl.(*ast.FuncDecl); ok {
@@ -35,13 +40,32 @@ func (s *StringObfuscator) addDecryptFunction(file *ast.File) {
 		}
 	}
 
-	func decrypt(encrypted, key string) string {
-		encBytes, _ := base64.StdEncoding.DecodeString(encrypted)
-		keyBytes, _ := base64.StdEncoding.DecodeString(key)
-		result := make([]byte, len(encBytes))
-		for i := 0; i < len(encBytes); i++ {
-			result[i] = encBytes[i] ^ keyBytes[i]
-		}
-		return string(result)
+	const src = `package p
+func decrypt(encrypted, key string) string {
+	encBytes, _ := base64.StdEncoding.DecodeString(encrypted)
+	keyBytes, _ := base64.StdEncoding.DecodeString(key)
+	result := make([]byte, len(encBytes))
+	for i := 0; i < len(encBytes); i++ {
+		result[i] = encBytes[i] ^ keyBytes[i%len(keyBytes)]
 	}
+	return string(result)
+}`
+	fset := token.NewFileSet()
+	parsed, err := parser.ParseFile(fset, "", src, 0)
+	if err != nil {
+		if s.verbose {
+			fmt.Println("failed to parse decrypt helper:", err)
+		}
+		return
+	}
+
+	for _, decl := range parsed.Decls {
+		if fn, ok := decl.(*ast.FuncDecl); ok && fn.Name.Name == "decrypt" {
+			file.Decls = append(file.Decls, fn)
+			if s.verbose {
+				fmt.Println("[*] decrypt helper added to AST")
+			}
+		}
+	}
+
 }

@@ -62,7 +62,7 @@ func (d *DeadCodeInjector) generateFakeCondition() ast.Stmt {
 		Body: &ast.BlockStmt{
 			List: []ast.Stmt{
 				&ast.AssignStmt{
-					Lhs: []ast.Expr{&ast.Ident{Name, "_"}},
+					Lhs: []ast.Expr{&ast.Ident{Name: "_"}},
 					Tok: token.ASSIGN,
 					Rhs: []ast.Expr{&ast.BasicLit{
 						Kind: token.INT,
